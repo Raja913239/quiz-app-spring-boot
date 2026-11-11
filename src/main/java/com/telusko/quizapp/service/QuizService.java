@@ -2,7 +2,7 @@ package com.telusko.quizapp.service;
 
 
 import com.telusko.quizapp.Entity.Question;
-import com.telusko.quizapp.Entity.QuestionWapper;
+import com.telusko.quizapp.Entity.QuestionWrapper;
 import com.telusko.quizapp.Entity.Quiz;
 import com.telusko.quizapp.Entity.Response;
 import com.telusko.quizapp.dao.QuestionDao;
@@ -37,13 +37,13 @@ public class QuizService {
 
     }
 
-    public ResponseEntity<List<QuestionWapper>> getQuizQuestions(Integer id) {
+    public ResponseEntity<List<QuestionWrapper>> getQuizQuestions(Integer id) {
 
         Optional<Quiz> quiz = quizDao.findById(id);
         List<Question> questionFromDB = quiz.get().getQuestions();
-        List<QuestionWapper> questionForUser = new ArrayList<>(); // Empty Array List
+        List<QuestionWrapper> questionForUser = new ArrayList<>(); // Empty Array List
         for(Question q : questionFromDB) {
-            QuestionWapper qw = new QuestionWapper(q.getId(),q.getQuestionTitle(),q.getOption1(),q.getOption2(),q.getOption3(),q.getOption4());
+            QuestionWrapper qw = new QuestionWrapper(q.getId(),q.getQuestionTitle(),q.getOption1(),q.getOption2(),q.getOption3(),q.getOption4());
             questionForUser.add(qw);
         }
 

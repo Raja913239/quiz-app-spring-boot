@@ -2,13 +2,10 @@ package com.telusko.quizapp.controller;
 
 
 
-import com.telusko.quizapp.Entity.Question;
-import com.telusko.quizapp.Entity.QuestionWapper;
-import com.telusko.quizapp.Entity.Quiz;
+import com.telusko.quizapp.Entity.QuestionWrapper;
 import com.telusko.quizapp.Entity.Response;
 import com.telusko.quizapp.service.QuizService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +25,7 @@ public class QuizController {
     }
 
     @GetMapping("get/{id}")
-    public ResponseEntity<List<QuestionWapper>> getQuizQuestions(@PathVariable Integer id) {
+    public ResponseEntity<List<QuestionWrapper>> getQuizQuestions(@PathVariable Integer id) {
         return quizService.getQuizQuestions(id);
     }
 
