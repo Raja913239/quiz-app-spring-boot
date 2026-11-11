@@ -1,5 +1,6 @@
 # Quiz App – Spring Boot REST API
 
+![CI](https://github.com/Raja913239/quiz-app-spring-boot/actions/workflows/ci.yml/badge.svg)
 A backend quiz application built with **Spring Boot**, **Spring Data JPA** and **PostgreSQL**.
 An admin adds questions and creates quizzes; a user fetches a quiz (without the answers), submits answers, and gets a score.
 
