@@ -2,6 +2,9 @@
 
 ![CI](https://github.com/Raja913239/quiz-app-spring-boot/actions/workflows/ci.yml/badge.svg)
 
+**Live demo:** https://quiz-app-latest-hspc.onrender.com/question/allQuestions
+(free hosting: the first request after 15 minutes idle can take about a minute while the app wakes up)
+
 A backend quiz application built with **Spring Boot**, **Spring Data JPA** and **PostgreSQL**.
 An admin adds questions and creates quizzes; a user fetches a quiz (without the answers), submits answers, and gets a score.
 
@@ -22,6 +25,7 @@ There is no front end; the APIs are tested with **Postman**, and the logic with 
 | Testing | JUnit, Mockito, MockMvc, Postman |
 | Containers | Docker (multi-stage build), Docker Compose |
 | CI/CD | GitHub Actions, GitHub Container Registry (ghcr.io) |
+| Hosting | Render (app container), Neon (managed PostgreSQL) |
 
 ---
 
@@ -252,7 +256,18 @@ Job 2: docker
    - build the image with the multi-stage Dockerfile (layer cache)
    - push ghcr.io/raja913239/quiz-app:latest
      and   ghcr.io/raja913239/quiz-app:<commit-sha>
+   │
+   ▼
+Job 3: deploy
+   - call the Render deploy hook (stored as a GitHub secret)
+   - Render pulls the new image and restarts the app
+   - Render checks /actuator/health before switching traffic
 ```
+
+- If any test fails, **no image is published and nothing is deployed**.
+- Pull requests run the tests only; images are published and deployed only from `main`.
+- Every image is tagged with the commit it was built from, so any version can be traced and rolled back.
+- Secrets (database password, deploy hook) live in Render and GitHub settings, never in the code.
 
 - If any test fails, **no image is published**.
 - Pull requests run the tests only; images are published only from `main`.
@@ -298,6 +313,7 @@ Only `health` and `info` are exposed over the web.
 5. **CI/CD pipeline with GitHub Actions:** every push to `main` builds the app and runs all tests (including an integration test against a PostgreSQL service container). If the tests pass, a Docker image is built and published to GitHub Container Registry, tagged `latest` and with the commit ID.
 6. **Containerized:** multi-stage Dockerfile (non-root user) and Docker Compose that starts the app with its own PostgreSQL and sample data in one command.
 7. **Health checks:** Spring Boot Actuator exposes liveness and readiness endpoints, including a database check, and Docker Compose uses them to report container health.
+8. **Deployed with continuous deployment:** the app runs on Render with a managed Neon PostgreSQL database. Every green push to `main` publishes a new image and redeploys automatically.
 
 ---
 
@@ -312,7 +328,8 @@ Only `health` and `info` are exposed over the web.
 - Deploy the published image to the cloud or to Kubernetes (continuous deployment)
 - Split into microservices (Question Service + Quiz Service with Eureka, OpenFeign and an API Gateway)
 - Health checks with Spring Boot Actuator
-
+- Deploy the published image to the cloud or to Kubernetes (continuous deployment)
+- - Kubernetes manifests (Deployment, Service, liveness/readiness probes)
 ---
 
 ## Acknowledgment
