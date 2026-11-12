@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS question (
     option3          VARCHAR(255),
     option4          VARCHAR(255),
     right_answer     VARCHAR(255),
-    difficultylevel  VARCHAR(255),
+    difficulty_level  VARCHAR(255),
     category         VARCHAR(255)
     );
 
-INSERT INTO question (question_title, option1, option2, option3, option4, right_answer, difficultylevel, category) VALUES
+INSERT INTO question (question_title, option1, option2, option3, option4, right_answer, difficulty_level, category) VALUES
                                                                                                                        ('What is the maximum value of a byte in Java?', '100', '127', '255', '999', '127', 'Easy', 'Java'),
                                                                                                                        ('Which keyword is used to inherit a class in Java?', 'implements', 'extends', 'inherits', 'super', 'extends', 'Easy', 'Java'),
                                                                                                                        ('What is the default value of an int field in Java?', '0', 'null', '1', 'undefined', '0', 'Easy', 'Java'),

@@ -89,7 +89,7 @@ src/test/java/com/telusko/quizapp
 ### Sample question
 
 ```sql
-INSERT INTO question (category, difficultylevel, option1, option2, option3, option4, question_title, right_answer)
+INSERT INTO question (category, difficulty_level, option1, option2, option3, option4, question_title, right_answer)
 VALUES ('Java', 'Easy', '100', '127', '255', '999', 'What is the maximum value of a byte in Java?', '127');
 ```
 
@@ -178,7 +178,7 @@ Or run `QuizappApplication` from IntelliJ. The app starts on **http://localhost:
   "option3": "255",
   "option4": "999",
   "rightAnswer": "127",
-  "difficultylevel": "Easy",
+  "difficultyLevel": "Easy",
   "category": "Java"
 }
 ```
