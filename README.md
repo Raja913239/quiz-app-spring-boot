@@ -22,8 +22,8 @@ There is no front end; the APIs are tested with **Postman**, and the logic with 
 | Database | PostgreSQL |
 | Build tool | Maven |
 | Other | Lombok |
-| Testing | JUnit, Mockito, MockMvc, Postman |
-| Containers | Docker (multi-stage build), Docker Compose |
+| Testing | JUnit, Mockito, MockMvc, JaCoCo (coverage), Postman |
+| Containers | Docker (multi-stage build), Docker Compose, Kubernetes (local, Docker Desktop) |
 | CI/CD | GitHub Actions, GitHub Container Registry (ghcr.io) |
 | Hosting | Render (app container), Neon (managed PostgreSQL) |
 
@@ -44,8 +44,9 @@ There is no front end; the APIs are tested with **Postman**, and the logic with 
 
 ```
 quizapp
-├── .github/workflows/ci.yml        # CI/CD pipeline: build, test, build and publish Docker image
+├── .github/workflows/ci.yml        # CI/CD pipeline: test, publish Docker image, deploy to Render
 ├── db/init.sql                     # Sample questions for the Docker database
+├── k8s/                            # Kubernetes manifests (Secret, ConfigMap, PostgreSQL, app)
 ├── Dockerfile                      # Multi-stage image build
 ├── docker-compose.yml              # App + PostgreSQL in one command
 ├── pom.xml
@@ -72,7 +73,7 @@ src/test/java/com/telusko/quizapp
 ├── controller
 │   └── QuizControllerTest.java     # MockMvc test of POST /quiz/submit/{id}
 ├── service
-│   └── QuizServiceTest.java        # Mockito unit tests of the scoring logic
+│   └── QuizServiceTest.java        # Mockito unit tests: scoring, quiz creation, quiz retrieval
 └── QuizappApplicationTests.java    # Spring context loads (needs PostgreSQL)
 ```
 
@@ -126,6 +127,35 @@ Stop with `Ctrl+C`, then:
 You can also pull the image on its own:
 ```bash
 docker pull ghcr.io/raja913239/quiz-app:latest
+```
+
+---
+
+## Run on Kubernetes (local, Docker Desktop)
+
+Requires Docker Desktop with **Kubernetes enabled** (Settings → Kubernetes).
+
+```bash
+kubectl apply -f k8s/
+kubectl get pods -w        # wait until all pods are 1/1 Running
+```
+
+Then open http://localhost:8080/question/allQuestions
+
+| File | Kubernetes objects |
+|---|---|
+| `k8s/01-secret.yaml` | Secret with the database password (local test value only) |
+| `k8s/02-db-init-configmap.yaml` | ConfigMap with the sample questions (init.sql) |
+| `k8s/03-postgres.yaml` | PersistentVolumeClaim, PostgreSQL Deployment, Service `db` |
+| `k8s/04-app.yaml` | Quiz app Deployment (startup, liveness and readiness probes, resource limits), LoadBalancer Service on port 8080 |
+
+Useful commands:
+
+```bash
+kubectl scale deployment quiz-app --replicas=3                                   # scale out
+kubectl set image deployment/quiz-app quiz-app=ghcr.io/raja913239/quiz-app:<sha>  # rolling update
+kubectl rollout undo deployment/quiz-app                                          # roll back
+kubectl delete -f k8s/                                                            # remove everything
 ```
 
 ---
@@ -229,11 +259,16 @@ mvn test
 
 | Test class | Type | What it checks |
 |---|---|---|
-| `QuizServiceTest` | Unit test (JUnit + Mockito, no database) | All answers correct → full score; **answers in any order → still scored correctly**; wrong answer → not counted |
+| `QuizServiceTest` | Unit tests (JUnit + Mockito, no database) | All answers correct → full score; **answers in any order → still scored correctly**; wrong answer → not counted; quiz questions returned without answers; new quiz saved with the right title and questions (`ArgumentCaptor`) |
 | `QuizControllerTest` | Web layer test (`@WebMvcTest` + MockMvc) | `POST /quiz/submit/{id}` with a JSON body returns 200 and the score |
 | `QuizappApplicationTests` | Integration (`@SpringBootTest`) | The whole application starts; needs PostgreSQL and `DB_PASSWORD` |
 
 The `anyOrder_stillCorrect` test caught a real bug in the original tutorial logic, which compared answers by position (see below).
+
+### Code coverage (JaCoCo)
+
+`mvn verify` also writes a coverage report to `target/site/jacoco/index.html`; CI uploads it as the **jacoco-report** artifact on every run.
+The report showed the answer-hiding logic had no tests; adding two tests raised coverage from **32% to 69%** (branches 70% → 90%).
 
 ---
 
@@ -248,7 +283,8 @@ push to main
 Job 1: build-and-test
    - start a temporary PostgreSQL 18 service container
    - set up Java 21 (Maven dependencies cached)
-   - ./mvnw verify  → compile + unit, web-layer and integration tests
+   - ./mvnw verify  → compile + unit, web-layer and integration tests + JaCoCo report
+   - upload the coverage report as an artifact
    │  (only if all tests pass)
    ▼
 Job 2: docker
@@ -269,11 +305,8 @@ Job 3: deploy
 - Every image is tagged with the commit it was built from, so any version can be traced and rolled back.
 - Secrets (database password, deploy hook) live in Render and GitHub settings, never in the code.
 
-- If any test fails, **no image is published**.
-- Pull requests run the tests only; images are published only from `main`.
-- Every image is tagged with the commit it was built from, so any version can be traced and rolled back.
-
 ---
+
 ## Health Checks (Spring Boot Actuator)
 
 | URL | What it tells you |
@@ -284,6 +317,8 @@ Job 3: deploy
 
 If the database is unreachable, `db` turns `DOWN` and the endpoint returns HTTP 503.
 Docker Compose calls `/actuator/health` every 10 seconds and marks the `app` container `healthy` or `unhealthy`.
+Render checks `/actuator/health` before switching traffic to a new deploy.
+Kubernetes uses `/actuator/health/liveness` (startup and liveness probes: restart if stuck) and `/actuator/health/readiness` (readiness probe: send traffic only when ready).
 Only `health` and `info` are exposed over the web.
 
 ---
@@ -300,7 +335,10 @@ Only `health` and `info` are exposed over the web.
 - **Lombok**: `@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`
 - **Unit testing** with Mockito mocks and **web layer testing** with MockMvc
 - **Containers**: multi-stage Docker build, non-root user, Docker Compose networking and health checks
-- **CI/CD**: GitHub Actions with a service container, job dependencies and container registry publishing
+- **CI/CD**: GitHub Actions with a service container, job dependencies, container registry publishing and a deploy hook
+- **Health checks**: Spring Boot Actuator liveness and readiness
+- **Code coverage**: JaCoCo report in every CI run
+- **Kubernetes**: Deployments, Services, Secret, ConfigMap, PersistentVolumeClaim, probes, scaling, rolling updates, rollback
 
 ---
 
@@ -314,6 +352,7 @@ Only `health` and `info` are exposed over the web.
 6. **Containerized:** multi-stage Dockerfile (non-root user) and Docker Compose that starts the app with its own PostgreSQL and sample data in one command.
 7. **Health checks:** Spring Boot Actuator exposes liveness and readiness endpoints, including a database check, and Docker Compose uses them to report container health.
 8. **Deployed with continuous deployment:** the app runs on Render with a managed Neon PostgreSQL database. Every green push to `main` publishes a new image and redeploys automatically.
+9. **Runs on Kubernetes:** manifests for PostgreSQL (Secret, ConfigMap, PersistentVolumeClaim, Deployment, Service) and the app (Deployment with startup, liveness and readiness probes from Actuator, resource limits, LoadBalancer Service). Tested self-healing, scaling to 3 replicas, zero-downtime rolling updates by commit-SHA image tag, and rollback.
 
 ---
 
@@ -324,14 +363,13 @@ Only `health` and `info` are exposed over the web.
 - Return `404 Not Found` for an unknown quiz ID instead of an error
 - Request validation with `@Valid`
 - Constructor injection instead of field injection
-- Health checks with Spring Boot Actuator
-- Deploy the published image to the cloud or to Kubernetes (continuous deployment)
+- More controller tests (raise controller coverage)
+- Code quality gate with SonarQube Cloud
+- GitOps deployment to Kubernetes with Argo CD; run on a cloud cluster (EKS / AKS / GKE)
 - Split into microservices (Question Service + Quiz Service with Eureka, OpenFeign and an API Gateway)
-- Health checks with Spring Boot Actuator
-- Deploy the published image to the cloud or to Kubernetes (continuous deployment)
-- - Kubernetes manifests (Deployment, Service, liveness/readiness probes)
+
 ---
 
 ## Acknowledgment
 
-Built by following the **Telusko** Spring Boot quiz project on YouTube, then extended with my own fixes, tests, containerization and CI/CD.
+Built by following the **Telusko** Spring Boot quiz project on YouTube, then extended with my own fixes, tests, containerization, CI/CD, cloud deployment and Kubernetes.
