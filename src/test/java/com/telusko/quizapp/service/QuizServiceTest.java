@@ -13,11 +13,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.telusko.quizapp.Entity.QuestionWrapper;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,7 +52,7 @@ class QuizServiceTest {
         quiz.setQuestions(List.of(q1, q2));
 
         // "When the service asks for quiz 1, return this fake quiz"
-        when(quizDao.findById(1)).thenReturn(Optional.of(quiz));
+        lenient().when(quizDao.findById(1)).thenReturn(Optional.of(quiz));
     }
 
     @Test
@@ -78,5 +83,30 @@ class QuizServiceTest {
                 new Response(12, "int"));
 
         assertEquals(1, quizService.calculateResult(1, answers).getBody());
+    }
+    @Test
+    void getQuizQuestions_returnsQuestionsWithoutAnswers() {
+        ResponseEntity<List<QuestionWrapper>> result = quizService.getQuizQuestions(1);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertEquals(2, result.getBody().size());
+        assertEquals(2, result.getBody().get(0).getId());
+        assertEquals(12, result.getBody().get(1).getId());
+    }
+
+    @Test
+    void creatQuiz_savesQuizWithRandomQuestions() {
+        Question q = new Question();
+        q.setId(5);
+        when(questionDao.findRandomQuestionsByCategory("Java", 1)).thenReturn(List.of(q));
+
+        ResponseEntity<String> result = quizService.creatQuiz("Java", 1, "JQuiz");
+
+        assertEquals(HttpStatus.CREATED, result.getStatusCode());
+
+        ArgumentCaptor<Quiz> saved = ArgumentCaptor.forClass(Quiz.class);
+        verify(quizDao).save(saved.capture());          // check what was saved
+        assertEquals("JQuiz", saved.getValue().getTitle());
+        assertEquals(1, saved.getValue().getQuestions().size());
     }
 }

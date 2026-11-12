@@ -47,6 +47,12 @@ jobs:
           chmod +x mvnw
           ./mvnw -B verify
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
   # ---------- Job 2 (NEW): build the Docker image and push it to ghcr.io ----------
   docker:
     needs: build-and-test                 # only runs if job 1 (the tests) passed
