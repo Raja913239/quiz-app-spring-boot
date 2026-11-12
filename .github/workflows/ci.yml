@@ -83,3 +83,15 @@ jobs:
             org.opencontainers.image.source=https://github.com/Raja913239/quiz-app-spring-boot
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ---------- Job 3: deploy the new image to Render ----------
+  deploy:
+    needs: docker                         # only after the image is pushed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
