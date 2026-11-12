@@ -1,0 +1,31 @@
+  services:
+
+    db:
+      image: postgres:18
+      environment:
+        POSTGRES_DB: questiondb
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: ${DB_PASSWORD:-quiz_local_password}          # taken from your Windows DB_PASSWORD
+      volumes:
+        - quiz-db-data:/var/lib/postgresql          # keeps data between restarts
+        - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro   # sample questions, first start only
+      healthcheck:
+        test: [ "CMD-SHELL", "pg_isready -U postgres -d questiondb" ]
+        interval: 5s
+        timeout: 5s
+        retries: 10
+
+    app:
+      build: .                                      # uses your Dockerfile
+      image: quiz-app
+      depends_on:
+        db:
+          condition: service_healthy                # start the app only when the DB is ready
+      environment:
+        SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/questiondb   # "db" = the service above
+        DB_PASSWORD: ${DB_PASSWORD:-quiz_local_password}
+      ports:
+        - "8080:8080"
+
+  volumes:
+    quiz-db-data:

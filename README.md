@@ -19,6 +19,7 @@ There is no front end; the APIs are tested with **Postman**, and the logic with 
 | Build tool | Maven |
 | Other | Lombok |
 | Testing | JUnit, Mockito, MockMvc, Postman |
+| Containers | Docker, Docker Compose |
 
 ---
 
@@ -116,6 +117,27 @@ mvn spring-boot:run
 Or run `QuizappApplication` from IntelliJ. The app starts on **http://localhost:8080**.
 
 ---
+## Run with Docker (no Java or PostgreSQL needed)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+docker compose up --build
+```
+
+This starts two containers:
+
+| Container | What it is |
+|---|---|
+| `db` | PostgreSQL 18, loaded with 15 sample questions (Java and Python) from `db/init.sql` on first start |
+| `app` | The quiz app, built with a multi-stage `Dockerfile` (JDK to build, small JRE image to run, non-root user) |
+
+The app waits for the database health check, then starts on **http://localhost:8080**.
+Try: http://localhost:8080/question/allQuestions
+
+Stop with `Ctrl+C`, then:
+- `docker compose down`: stop and keep the data
+- `docker compose down -v`: also delete the database (sample questions are reloaded on the next start)
 
 ## API Endpoints
 
