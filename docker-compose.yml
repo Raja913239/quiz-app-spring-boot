@@ -16,8 +16,8 @@
         retries: 10
 
     app:
+      image: ghcr.io/raja913239/quiz-app:latest
       build: .                                      # uses your Dockerfile
-      image: quiz-app
       depends_on:
         db:
           condition: service_healthy                # start the app only when the DB is ready

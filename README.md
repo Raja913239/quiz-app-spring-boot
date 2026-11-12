@@ -1,10 +1,11 @@
 # Quiz App – Spring Boot REST API
 
 ![CI](https://github.com/Raja913239/quiz-app-spring-boot/actions/workflows/ci.yml/badge.svg)
+
 A backend quiz application built with **Spring Boot**, **Spring Data JPA** and **PostgreSQL**.
 An admin adds questions and creates quizzes; a user fetches a quiz (without the answers), submits answers, and gets a score.
 
-There is no front end; the APIs are tested with **Postman**, and the logic with **JUnit + Mockito** unit tests.
+There is no front end; the APIs are tested with **Postman**, and the logic with **JUnit + Mockito** tests that run automatically in a **GitHub Actions** CI/CD pipeline.
 
 ---
 
@@ -19,7 +20,8 @@ There is no front end; the APIs are tested with **Postman**, and the logic with 
 | Build tool | Maven |
 | Other | Lombok |
 | Testing | JUnit, Mockito, MockMvc, Postman |
-| Containers | Docker, Docker Compose |
+| Containers | Docker (multi-stage build), Docker Compose |
+| CI/CD | GitHub Actions, GitHub Container Registry (ghcr.io) |
 
 ---
 
@@ -37,6 +39,14 @@ There is no front end; the APIs are tested with **Postman**, and the logic with 
 ## Project Structure
 
 ```
+quizapp
+├── .github/workflows/ci.yml        # CI/CD pipeline: build, test, build and publish Docker image
+├── db/init.sql                     # Sample questions for the Docker database
+├── Dockerfile                      # Multi-stage image build
+├── docker-compose.yml              # App + PostgreSQL in one command
+├── pom.xml
+└── src
+
 src/main/java/com/telusko/quizapp
 ├── controller
 │   ├── QuestionController.java
@@ -85,7 +95,38 @@ VALUES ('Java', 'Easy', '100', '127', '255', '999', 'What is the maximum value o
 
 ---
 
-## Setup & Run
+## Run with Docker (fastest: no Java or PostgreSQL needed)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+docker compose up
+```
+
+This downloads the ready-made image `ghcr.io/raja913239/quiz-app:latest`, built and published by GitHub Actions after every successful test run, and starts two containers:
+
+| Container | What it is |
+|---|---|
+| `db` | PostgreSQL 18, loaded with 15 sample questions (Java and Python) from `db/init.sql` on first start |
+| `app` | The quiz app (multi-stage `Dockerfile`: JDK to build, small JRE image to run, non-root user) |
+
+The app waits for the database health check, then starts on **http://localhost:8080**.
+Try: http://localhost:8080/question/allQuestions
+
+To build the image from your local code instead: `docker compose up --build`
+
+Stop with `Ctrl+C`, then:
+- `docker compose down`: stop and keep the data
+- `docker compose down -v`: also delete the database (sample questions are reloaded on the next start)
+
+You can also pull the image on its own:
+```bash
+docker pull ghcr.io/raja913239/quiz-app:latest
+```
+
+---
+
+## Run locally (Java + PostgreSQL)
 
 ### 1. Prerequisites
 - Java 21
@@ -117,27 +158,6 @@ mvn spring-boot:run
 Or run `QuizappApplication` from IntelliJ. The app starts on **http://localhost:8080**.
 
 ---
-## Run with Docker (no Java or PostgreSQL needed)
-
-Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-
-```bash
-docker compose up --build
-```
-
-This starts two containers:
-
-| Container | What it is |
-|---|---|
-| `db` | PostgreSQL 18, loaded with 15 sample questions (Java and Python) from `db/init.sql` on first start |
-| `app` | The quiz app, built with a multi-stage `Dockerfile` (JDK to build, small JRE image to run, non-root user) |
-
-The app waits for the database health check, then starts on **http://localhost:8080**.
-Try: http://localhost:8080/question/allQuestions
-
-Stop with `Ctrl+C`, then:
-- `docker compose down`: stop and keep the data
-- `docker compose down -v`: also delete the database (sample questions are reloaded on the next start)
 
 ## API Endpoints
 
@@ -213,6 +233,33 @@ The `anyOrder_stillCorrect` test caught a real bug in the original tutorial logi
 
 ---
 
+## CI/CD Pipeline (GitHub Actions)
+
+Every push to `main` runs `.github/workflows/ci.yml`:
+
+```
+push to main
+   │
+   ▼
+Job 1: build-and-test
+   - start a temporary PostgreSQL 18 service container
+   - set up Java 21 (Maven dependencies cached)
+   - ./mvnw verify  → compile + unit, web-layer and integration tests
+   │  (only if all tests pass)
+   ▼
+Job 2: docker
+   - log in to GitHub Container Registry with the built-in GITHUB_TOKEN
+   - build the image with the multi-stage Dockerfile (layer cache)
+   - push ghcr.io/raja913239/quiz-app:latest
+     and   ghcr.io/raja913239/quiz-app:<commit-sha>
+```
+
+- If any test fails, **no image is published**.
+- Pull requests run the tests only; images are published only from `main`.
+- Every image is tagged with the commit it was built from, so any version can be traced and rolled back.
+
+---
+
 ## Key Concepts Used
 
 - **Layered architecture**: Controller, Service, DAO
@@ -224,6 +271,8 @@ The `anyOrder_stillCorrect` test caught a real bug in the original tutorial logi
 - **Dependency Injection**
 - **Lombok**: `@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`
 - **Unit testing** with Mockito mocks and **web layer testing** with MockMvc
+- **Containers**: multi-stage Docker build, non-root user, Docker Compose networking and health checks
+- **CI/CD**: GitHub Actions with a service container, job dependencies and container registry publishing
 
 ---
 
@@ -233,6 +282,8 @@ The `anyOrder_stillCorrect` test caught a real bug in the original tutorial logi
 2. **Unit tests that prove it.** `QuizServiceTest.anyOrder_stillCorrect` failed on the original logic (expected 2, got 0) and passes after the fix.
 3. **No secrets in the repository.** The database password comes from the `DB_PASSWORD` environment variable.
 4. **Upgraded to Java 21 and Spring Boot 4.1.2** (the tutorial uses Spring Boot 3), including the new modular test starters.
+5. **CI/CD pipeline with GitHub Actions:** every push to `main` builds the app and runs all tests (including an integration test against a PostgreSQL service container). If the tests pass, a Docker image is built and published to GitHub Container Registry, tagged `latest` and with the commit ID.
+6. **Containerized:** multi-stage Dockerfile (non-root user) and Docker Compose that starts the app with its own PostgreSQL and sample data in one command.
 
 ---
 
@@ -243,11 +294,12 @@ The `anyOrder_stillCorrect` test caught a real bug in the original tutorial logi
 - Return `404 Not Found` for an unknown quiz ID instead of an error
 - Request validation with `@Valid`
 - Constructor injection instead of field injection
-- GitHub Actions pipeline that runs the tests on every push
+- Health checks with Spring Boot Actuator
+- Deploy the published image to the cloud or to Kubernetes (continuous deployment)
 - Split into microservices (Question Service + Quiz Service with Eureka, OpenFeign and an API Gateway)
 
 ---
 
 ## Acknowledgment
 
-Built by following the **Telusko** Spring Boot quiz project on YouTube, then extended with my own fixes, tests and upgrades.
+Built by following the **Telusko** Spring Boot quiz project on YouTube, then extended with my own fixes, tests, containerization and CI/CD.
