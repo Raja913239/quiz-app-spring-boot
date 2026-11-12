@@ -259,6 +259,19 @@ Job 2: docker
 - Every image is tagged with the commit it was built from, so any version can be traced and rolled back.
 
 ---
+## Health Checks (Spring Boot Actuator)
+
+| URL | What it tells you |
+|---|---|
+| `/actuator/health` | Overall status plus each component: `db`, `diskSpace`, `ping` |
+| `/actuator/health/liveness` | Is the app alive? (used for restarts) |
+| `/actuator/health/readiness` | Is the app ready for traffic? |
+
+If the database is unreachable, `db` turns `DOWN` and the endpoint returns HTTP 503.
+Docker Compose calls `/actuator/health` every 10 seconds and marks the `app` container `healthy` or `unhealthy`.
+Only `health` and `info` are exposed over the web.
+
+---
 
 ## Key Concepts Used
 
@@ -284,6 +297,7 @@ Job 2: docker
 4. **Upgraded to Java 21 and Spring Boot 4.1.2** (the tutorial uses Spring Boot 3), including the new modular test starters.
 5. **CI/CD pipeline with GitHub Actions:** every push to `main` builds the app and runs all tests (including an integration test against a PostgreSQL service container). If the tests pass, a Docker image is built and published to GitHub Container Registry, tagged `latest` and with the commit ID.
 6. **Containerized:** multi-stage Dockerfile (non-root user) and Docker Compose that starts the app with its own PostgreSQL and sample data in one command.
+7. **Health checks:** Spring Boot Actuator exposes liveness and readiness endpoints, including a database check, and Docker Compose uses them to report container health.
 
 ---
 
@@ -297,6 +311,7 @@ Job 2: docker
 - Health checks with Spring Boot Actuator
 - Deploy the published image to the cloud or to Kubernetes (continuous deployment)
 - Split into microservices (Question Service + Quiz Service with Eureka, OpenFeign and an API Gateway)
+- Health checks with Spring Boot Actuator
 
 ---
 
